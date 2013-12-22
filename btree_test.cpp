@@ -2,20 +2,20 @@
 #include "gtest/gtest.h"
 
 TEST(BTreeTest, ConstructorDefaultsMakeSense) {
-  btree<2, int, float> b;
+  btree<2, int> b;
   EXPECT_EQ(b.root->n, 0) << "Empty B-tree root did not have 0 children.";
   EXPECT_TRUE(b.root->leaf) << "Empty B-tree root was not a leaf.";
 }
 
 TEST(BTreeTest, SearchOnEmptyTree) {
-  btree<2, int, int> b;
+  btree<2, int> b;
   EXPECT_EQ(b.search(0).first, nullptr);
 }
 
 TEST(BTreeTest, SearchBasic) {
-  btree<2, int, int> b;
+  btree<2, int> b;
   b.root->n++;
-  auto n = new btree_node<2, int, int>;
+  auto n = new decltype(b)::node_type;
   b.root->c[0].reset(n);
   b.root->keys[0] = 3;
 

@@ -2,8 +2,7 @@
 #include <utility>
 
 template <unsigned int t,
-          typename key,
-          typename value> struct btree_node {
+          typename key> struct btree_node {
   
   /**
    * The number of children this node has.
@@ -27,9 +26,8 @@ template <unsigned int t,
 };
 
 template <unsigned int t,
-          typename key,
-          typename value> struct btree {
-  typedef btree_node<t, key, value> node_type;
+          typename key> struct btree {
+  typedef btree_node<t, key> node_type;
 
  btree();
 
@@ -63,24 +61,22 @@ private:
 };
 
 
-template<unsigned int t,
-         typename key,
-         typename value> btree<t, key, value>::btree() :
-           root(new node_type) {
+template<unsigned int t, typename key>
+    btree<t, key>::btree() : root(new node_type) {
   root->n = 0;
   root->leaf = true;
 }
 
-template<unsigned int t, typename key, typename value>
-    std::pair<typename btree<t, key, value>::node_type*, int>
-    btree<t, key, value>::search(const key& k) const {
+template<unsigned int t, typename key>
+    std::pair<typename btree<t, key>::node_type*, int>
+    btree<t, key>::search(const key& k) const {
   return search_node(root.get(), k); 
 }
 
-template<unsigned int t, typename key, typename value>
-    std::pair<typename btree<t, key, value>::node_type*, int>
-    btree<t, key, value>::search_node(const btree<t, key, value>::node_type* x,
-                                      const key& k) const {
+template<unsigned int t, typename key>
+    std::pair<typename btree<t, key>::node_type*, int>
+    btree<t, key>::search_node(const btree<t, key>::node_type* x,
+                               const key& k) const {
   int i = 0;
   while (i < x->n && k > x->keys[i]) ++i;
   if (i < x->n && k == x->keys[i]) return std::make_pair(x->c[i].get(), i);
@@ -88,9 +84,8 @@ template<unsigned int t, typename key, typename value>
   return search_node(x->c[i].get(), k);
 }
 
-template<unsigned int t, typename key, typename value>
-    void btree<t, key, value>::split(btree<t, key, value>::node_type* x,
-                                     int i) {
+template<unsigned int t, typename key>
+    void btree<t, key>::split(btree<t, key>::node_type* x, int i) {
   node_type y = x->c[i];
   node_type z = new node_type;
   z->leaf = x->leaf;
