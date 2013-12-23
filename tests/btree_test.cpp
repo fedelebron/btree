@@ -55,18 +55,6 @@ TEST(BTreeTest, SearchEdges) {
   EXPECT_EQ(b.search(4).first, nullptr) << "Found 4.";
 }
 
-
-TEST(BTreeTest, InsertMillions) {
-  btree<5, long long int> b;
-  long long int n = 4000000;
-  for (long long int i = 0; i < n; ++i) {
-    long long int x = i * i % 8000009;;
-    EXPECT_EQ(b.search(x).first, nullptr) << "Found " << x << ".";
-    b.insert(x);
-    EXPECT_NE(b.search(x).first, nullptr) << "Did not find " << x << ".";
-  }
-}
-
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

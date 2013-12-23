@@ -26,14 +26,10 @@ template <unsigned int t,
 
 template <unsigned int t,
           typename key> struct btree {
+
   typedef btree_node<t, key> node_type;
 
   btree();
-
- /**
-   * A pointer to the root of the tree.
-   */
-  std::unique_ptr<node_type> root;
 
   /**
    * Search for a node in the tree with a given key k.
@@ -41,14 +37,6 @@ template <unsigned int t,
    * If no such node exists, n is nullptr, and i is undefined.
    */
   std::pair<const node_type*, int> search(const key& k) const;
-
-  /**
-   * Split the ith child of x, assuming that x is not full, and its ith
-   * child is full.
-   * A node being full means it has 2t children.
-   */
-  void split(node_type* x, int);
-
 
   /**
    * Insert a key into the tree.
@@ -64,11 +52,23 @@ template <unsigned int t,
 private:
 
   /**
+   * A pointer to the root of the tree.
+   */
+  std::unique_ptr<node_type> root;
+
+ /**
    * Helper function for search. Searches within a given subtree, using
    * the provided node n as a root of the subtree.
    */
   std::pair<const node_type*, int> search_node(const node_type* n,
                                                const key& k) const;
+
+  /**
+   * Split the ith child of x, assuming that x is not full, and its ith
+   * child is full.
+   * A node being full means it has 2t children.
+   */
+  void split(node_type* x, int);
 
   /**
    * Helper function for insert.
