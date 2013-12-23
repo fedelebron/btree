@@ -55,16 +55,15 @@ TEST(BTreeTest, SearchEdges) {
   EXPECT_EQ(b.search(4).first, nullptr) << "Found 4.";
 }
 
-TEST(BTreeTest, InsertMany) {
-  btree<3, int> b;
-  int p = 1009;
-  for (int i = 0; i < 500; ++i) {
-    int x = i * i % p;
+
+TEST(BTreeTest, InsertMillions) {
+  btree<5, long long int> b;
+  long long int n = 4000000;
+  for (long long int i = 0; i < n; ++i) {
+    long long int x = i * i % 8000009;;
     EXPECT_EQ(b.search(x).first, nullptr) << "Found " << x << ".";
     b.insert(x);
-    b.check(-1, 1010);
     EXPECT_NE(b.search(x).first, nullptr) << "Did not find " << x << ".";
-    EXPECT_TRUE(b.check(-1, 1010)) << "Failed internal consistency check.";
   }
 }
 
