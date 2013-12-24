@@ -20,12 +20,19 @@ long timeit(std::function<void(void)> f) {
 }
 
 void insertion_btree_benchmark() {
-  btree<5, long long int> b;
+  btree<16, long long int> b;
   const long long int n = 4000000;
   const long long int p = 8000009;
   for (long long int i = 0; i < n; ++i) {
     long long int x = i * i % p;
     b.insert(x);
+  }
+  for (long long int i = 0; i < n; ++i) {
+    long long int x = i * i % p;
+    if (b.search(x).first == nullptr) {
+      cout << "Error: " << x << " inserted and not found." << endl;
+      exit(-1);
+    }
   }
 }
 
@@ -36,6 +43,10 @@ void insertion_set_benchmark() {
   for (long long int i = 0; i < n; ++i) {
     long long int x = i * i % p;
     s.insert(x);
+  }
+  for (long long int i = 0; i < n; ++i) {
+    long long int x = i * i % p;
+    if (s.find(x) == s.end()) exit(-1);
   }
 }
 

@@ -100,11 +100,31 @@ template<unsigned int t, typename key>
     std::pair<const typename btree<t, key>::node_type*, int>
     btree<t, key>::search_node(const btree<t, key>::node_type* x,
                                const key& k) const {
+#ifdef BINARY_SEARCH
+  int i = 0;
+  int n = x->n;
+  int j = n - 1;
+  while (i < j) {
+    int mid = (i + j) >> 1;
+    if (x->keys[mid] >= k) j = mid;
+    else i = mid + 1;
+  }
+  if (k == x->keys[i])
+    return std::make_pair(x, i);
+  if (x->leaf)
+    return std::make_pair(nullptr, -1);
+  if (i == 0 && k < x->keys[0])
+    return search_node(x->c[0].get(), k);
+  if (i == n - 1 && k > x->keys[n - 1])
+    return search_node(x->c[n].get(), k);
+  return search_node(x->c[i].get(), k);
+#else
   int i = 0;
   while (i < x->n && k > x->keys[i]) ++i;
   if (i < x->n && k == x->keys[i]) return std::make_pair(x, i);
   if (x->leaf) return std::make_pair(nullptr, -1);
   return search_node(x->c[i].get(), k);
+#endif
 }
 
 template<unsigned int t, typename key>
