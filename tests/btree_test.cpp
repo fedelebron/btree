@@ -39,8 +39,3 @@ TEST(BTreeTest, SearchEdges) {
   b.insert(3);
   EXPECT_EQ(b.search(4).first, nullptr) << "Found 4.";
 }
-
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
