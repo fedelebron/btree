@@ -119,7 +119,7 @@ template<unsigned int t, typename key>
     return search_node(x->c[n].get(), k);
   return search_node(x->c[i].get(), k);
 #else
-  int i = 0;
+  unsigned int i = 0;
   while (i < x->n && k > x->keys[i]) ++i;
   if (i < x->n && k == x->keys[i]) return std::make_pair(x, i);
   if (x->leaf) return std::make_pair(nullptr, -1);
@@ -135,11 +135,11 @@ template<unsigned int t, typename key>
   node_type* z = new node_type;
   z->leaf = y->leaf;
   z->n = t - 1;
-  for (int j = 0; j < t - 1; ++j) {
+  for (unsigned int j = 0; j < t - 1; ++j) {
     z->keys[j] = y->keys[j + t];
   }
   if (!y->leaf) {
-    for (int j = 0; j < t; ++j) {
+    for (unsigned int j = 0; j < t; ++j) {
       z->c[j].reset(y->c[j + t].release());
     }
   }
