@@ -1,5 +1,6 @@
 #include <memory>
 #include <utility>
+#include <ostream>
 template <unsigned int t,
           typename key> struct btree_node {
   
@@ -49,6 +50,12 @@ template <unsigned int t,
    * and <= upper.
    */
   bool check(const key& lower, const key& upper) const;
+
+  /**
+   * Dump a graphviz visualization of the tree to the given stream.
+   */
+  template<unsigned int t_, typename key_>
+    friend std::ostream& operator<<(std::ostream&, btree<t_, key_>&);
 private:
 
   /**
@@ -81,6 +88,12 @@ private:
    * the given node.
    */
   bool check_node(const node_type*, bool, const key&, const key&) const;
+
+  /**
+   * Dump the subtree rooted at this node as in graphviz format to the
+   * given output stream.
+   */
+  void dump_subtree_graphviz(const node_type*, std::ostream&) const;          
 };
 
 
@@ -227,4 +240,35 @@ template <unsigned int t, typename key>
                             upper)) return false;
 
   return true;
+}
+
+template <unsigned int t, typename key>
+    std::ostream& operator<<(std::ostream& o, btree<t, key>& tree) {
+  o << "digraph G{splines=false;node[fontname=\"helvetica\"];";
+  tree.dump_subtree_graphviz(tree.root.get(), o);
+  o << "}";
+  return o;
+}
+
+template <unsigned int t, typename key> void btree<t, key>::dump_subtree_graphviz(
+    const typename btree<t, key>::node_type* node, std::ostream& o) const {
+  o << "node" << node << "[shape=none;label=<<table style=\"rounded\"";
+  o << " border=\"0\" bgcolor=\"deepskyblue\" cellspacing=\"4\"><tr>";
+  for (unsigned int i = 0; i < node->n; ++i) {
+    o << "<td port=\"child" << i << "\" bgcolor=\"gray\" border=\"1\"></td>";
+    o << "<td port=\"key" << i << "\" bgcolor=\"white\" border=\"1\">";
+    o << node->keys[i] << "</td>";
+  }
+  o << "<td port=\"child" << node->n << "\" border=\"1\" bgcolor=\"gray\"></td>";
+  o << "</tr></table>>]";
+
+  if (!node->leaf) {
+    for (unsigned int i = 0; i <= node->n; ++i) {
+      o << "node" << node << ":child" << i << ":c -> node" << node->c[i].get() << ";";
+    }
+
+    for (unsigned int i = 0; i <= node->n; ++i) {
+      dump_subtree_graphviz(node->c[i].get(), o);
+    }
+  }
 }
