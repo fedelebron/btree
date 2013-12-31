@@ -81,6 +81,13 @@ private:
    * the given node.
    */
   bool check_node(const node_type*, bool, const key&, const key&) const;
+
+  /**
+   * Given a parent node p, a minimal child p.c[i], and a non-minimal sibling
+   * s of p.c[i] (left sibling if left == true, else right), we "rotate" a
+   * key from s up to p, and from p down to p.c[i].
+   */
+  void rotate(node_type* p, unsigned int i, bool left);          
 };
 
 
@@ -228,3 +235,47 @@ template <unsigned int t, typename key>
 
   return true;
 }
+
+template <unsigned int t, typename key> void btree<t, key>::rotate(
+    typename btree<t, key>::node_type* parent,
+    unsigned int i,
+    bool left) {
+  std::unique_ptr<node_type> child = parent->c[i];    
+  // am I removing a key from the left sibling?
+  if (left) {
+    std::unique_ptr<node_type> sibling = parent->c[i - 1];
+    unsigned int n = child->n;
+    /* make room in c, shifting all keys and children to the right */
+    child->c[n + 1].reset(child->c[n].release());
+    for (unsigned int j = 0; j < n; ++j) {
+      child->keys[j + 1] = child->keys[j];
+      child->c[j + 1].reset(child->c[j].release());
+    }
+    child->n++;
+    /* lower the parent's key down to the child */
+    child->keys[0] = parent->keys[i - 1];
+    /* raise the sibling's last key to the parent */
+    parent->keys[i - 1] = sibling->keys[sibling->n - 1];
+    /* hang sibling's last child at the beginning of child */
+    child->c[0].reset(sibling->c[sibling->n].release());
+    sibling->n--;
+  } else {
+    std::unique_ptr<node_type> sibling = parent->c[i + 1];
+    unsigned int n = child->n;
+    /* lower the parent's key down to the child */
+    child->keys[n] = parent->keys[i];
+    /* raise the sibling's first key to the parent */
+    parent->keys[i] = sibling->keys[0];
+    /* hang sibling's first child at the end of child */
+    child->c[n + 1].reset(sibling->c[0].release());
+    child->n++;
+    /* shift everything in sibling to the left */
+    for (unsigned int i = 1; i < sibling->n; ++i) {
+      sibling->keys[i - 1] = sibling->keys[i];
+      sibling->c[i - 1].reset(sibling->c[i].release());
+    }
+    sibling->c[sibling->n - 1].reset(sibling->c[sibling->n].release());
+    sibling->n--;
+  }
+}
+
