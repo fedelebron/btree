@@ -39,3 +39,47 @@ TEST(BTreeTest, SearchEdges) {
   b.insert(3);
   EXPECT_EQ(b.search(4).first, nullptr) << "Found 4.";
 }
+
+TEST(BTreeTest, Greatest) {
+  btree<2, int> b;
+  b.insert(4);
+  EXPECT_EQ(b.greatest(), 4) << "Greatest element wasn't 4.";
+  b.insert(5);
+  EXPECT_EQ(b.greatest(), 5) << "Greatest element wasn't 5.";
+  b.insert(1);
+  b.insert(2);
+  EXPECT_EQ(b.greatest(), 5) << "Greatest element wasn't 5.";
+  b.insert(6);
+  EXPECT_EQ(b.greatest(), 6) << "Greatest element wasn't 6.";
+}
+
+TEST(BTreeTest, Smallest) {
+  btree<3, int> b;
+  b.insert(6);
+  EXPECT_EQ(b.smallest(), 6) << "Smallest element wasn't 6.";
+  b.insert(5);
+  EXPECT_EQ(b.smallest(), 5) << "Smallest element wasn't 5.";
+  b.insert(8);
+  b.insert(9);
+  EXPECT_EQ(b.smallest(), 5) << "Smallest element wasn't 5.";
+  b.insert(4);
+  EXPECT_EQ(b.smallest(), 4) << "Smallest element wasn't 4.";
+}
+
+TEST(BTreeTest, DeleteInLeaf) {
+  btree<2, int> b;
+  b.insert(4);
+  b.insert(5);
+  b.remove(5);
+  EXPECT_EQ(b.search(5).first, nullptr) << "Found 5.";
+}
+
+TEST(BTreeTest, DeleteRoot) {
+  btree<2, int> b;
+  b.insert(1);
+  b.remove(1);
+  EXPECT_EQ(b.search(1).first, nullptr) << "Found 1.";
+  b.insert(2);
+  b.remove(2);
+  EXPECT_EQ(b.search(2).first, nullptr) << "Found 2.";
+}

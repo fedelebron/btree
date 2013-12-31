@@ -47,6 +47,24 @@ template <unsigned int t,
   void insert(const key&);
 
   /**
+   * Remove a key into the tree.
+   * If the key does not exist, does nothing.
+   */
+  void remove(const key&);
+  
+  /**
+   * Finds the greatest key in the tree.
+   * Assumes the tree is not empty.
+   */
+  const key& greatest() const;
+
+  /**
+   * Finds the smallest key in the tree.
+   * Assumes the tree is not empty.
+   */
+  const key& smallest() const;
+
+  /**
    * Check B-tree invariants. The values of the tree must be >= lower,
    * and <= upper.
    */
@@ -64,12 +82,21 @@ private:
    */
   std::unique_ptr<node_type> root;
 
- /**
+  /**
    * Helper function for search. Searches within a given subtree, using
    * the provided node n as a root of the subtree.
    */
   std::pair<const node_type*, int> search_node(const node_type* n,
                                                const key& k) const;
+  /**
+   * Finds the greatest element in a given subtree.
+   */
+  std::pair<node_type*, int> greatest_in_subtree(node_type* r) const;
+
+  /**
+   * Finds the smallest element in a given subtree.
+   */
+  std::pair<node_type*, int> smallest_in_subtree(node_type* r) const;
 
   /**
    * Split the ith child of x, assuming that x is not full, and its ith
@@ -102,7 +129,17 @@ private:
    * into a single 2 * t - 1 key node, using the parent's ith key as the new
    * node's median key.
    */
-  void merge(node_type* p, int i);
+  node_type* merge(node_type* p, int i);
+
+  /**
+   * Assuming x is a leaf, removes the ith key from x.
+   */
+  void remove_from_leaf(node_type* x, int i);
+
+  /**
+   * Delete the key k from the subtree rooted at r.
+   */
+  void remove_recursive(node_type* r, const key& k);
 
   /**
    * Dump the subtree rooted at this node as in graphviz format to the
@@ -261,10 +298,10 @@ template <unsigned int t, typename key> void btree<t, key>::rotate(
     typename btree<t, key>::node_type* parent,
     unsigned int i,
     bool left) {
-  std::unique_ptr<node_type> child = parent->c[i];    
-  // am I removing a key from the left sibling?
+  node_type* child = parent->c[i].get();    
+  /* am I removing a key from the left sibling? */
   if (left) {
-    std::unique_ptr<node_type> sibling = parent->c[i - 1];
+    node_type* sibling = parent->c[i - 1].get();
     unsigned int n = child->n;
     /* make room in c, shifting all keys and children to the right */
     child->c[n + 1].reset(child->c[n].release());
@@ -281,7 +318,7 @@ template <unsigned int t, typename key> void btree<t, key>::rotate(
     child->c[0].reset(sibling->c[sibling->n].release());
     sibling->n--;
   } else {
-    std::unique_ptr<node_type> sibling = parent->c[i + 1];
+    node_type* sibling = parent->c[i + 1].get();
     unsigned int n = child->n;
     /* lower the parent's key down to the child */
     child->keys[n] = parent->keys[i];
@@ -300,12 +337,12 @@ template <unsigned int t, typename key> void btree<t, key>::rotate(
   }
 }
 
-template <unsigned int t, typename key> void btree<t, key>::merge(
+template <unsigned int t, typename key> typename btree<t, key>::node_type* btree<t, key>::merge(
     typename btree<t, key>::node_type* parent,
     int i) {
   /* we'll marge the ith and i+1th children of parent */
-  std::unique_ptr<node_type> left = parent->c[i].get();
-  std::unique_ptr<node_type> right = parent->c[i + 1].get();
+  node_type* left = parent->c[i].get();
+  node_type* right = parent->c[i + 1].get();
 
   assert(left->n == t - 1);
   assert(right->n == t - 1);
@@ -318,7 +355,7 @@ template <unsigned int t, typename key> void btree<t, key>::merge(
     left->keys[t + j] = right->keys[j];
     left->c[t + j].reset(right->c[j].release());
   }
-  left->keys[2 * t - 1].reset(right->c[t - 1].release());
+  left->c[2 * t - 1].reset(right->c[t - 1].release());
 
   /* 2 * (t - 1) + 1 = 2 * t - 1 */
   left->n = 2 * t - 1;
@@ -329,6 +366,121 @@ template <unsigned int t, typename key> void btree<t, key>::merge(
     parent->c[j + 1].reset(parent->c[j + 2].release()); 
   }
   parent->n--;
+
+  return left;
+}
+
+template <unsigned int t, typename key> void btree<t, key>::remove_from_leaf(
+    typename btree<t, key>::node_type* x,
+    int i) {
+  assert(x->leaf);
+  for (int j = i; j < x->n - 1; ++j) {
+    x->keys[j] = x->keys[j + 1];
+  }
+  x->n--;
+}
+
+template <unsigned int t, typename key>
+    std::pair<typename btree<t, key>::node_type*, int> btree<t, key>::greatest_in_subtree(
+      typename btree<t, key>::node_type* x) const {
+  if (x->leaf) return std::make_pair(x, x->n - 1);
+  return greatest_in_subtree(x->c[x->n].get());
+}
+
+template <unsigned int t, typename key>
+    std::pair<typename btree<t, key>::node_type*, int> btree<t, key>::smallest_in_subtree(
+      typename btree<t, key>::node_type* x) const {
+  if (x->leaf) return std::make_pair(x, 0);
+  return smallest_in_subtree(x->c[0].get());
+}
+
+template <unsigned int t, typename key> const key& btree<t, key>::greatest() const {
+  assert(root->n);
+  node_type* x;
+  int i;
+  std::tie(x, i) = greatest_in_subtree(root.get());
+  return x->keys[i];
+}
+
+template <unsigned int t, typename key> const key& btree<t, key>::smallest() const {
+  assert(root->n);
+  node_type* x;
+  int i;
+  std::tie(x, i) = smallest_in_subtree(root.get());
+  return x->keys[i];
+}
+
+template <unsigned int t, typename key> void btree<t, key>::remove_recursive(
+    typename btree<t, key>::node_type* x,
+    const key& k) {
+  /* invariant: either x == tree.root.get(), or x->n >= t */
+  assert(x->n >= t || x == root.get());
+  int i = 0;
+  while (i < x->n && x->keys[i] < k) ++i;
+  if (x->keys[i] == k) {
+    if (x->leaf) {
+      /* k was found in x, and x is a leaf, simply remove k */
+      remove_from_leaf(x, i);
+    } else {
+      /* k was found in x, but x is not a leaf.
+       * replace x->keys[i] with its successor or predecessor y->keys[j].
+       * then remove y->keys[j].
+       * note y must always be a leaf.
+       */
+      node_type* y;
+      int j;
+      if (x->c[i]->n >= t) { 
+        std::tie(y, j) = greatest_in_subtree(x->c[i].get());
+      } else {
+        std::tie(y, j) = smallest_in_subtree(x->c[i + 1].get());  
+      }
+      x->keys[i] = y->keys[j];
+      remove_from_leaf(y, j);
+    }
+  } else {
+    /* k was not in x. if it exists, it's in subtree r. */
+    if (x->leaf) return;
+    node_type* r = x->c[i].get();
+    if (r->n == t - 1) {
+      /* we'd like to recursively remove k in r,
+       * but r does not satisfy the invariant r->n >= t,
+       * and it certainly is not the root of the tree.
+       * if r has a sibling with >= t keys, we lower
+       * a key from x to r, substituting this key in x
+       * with a key from this sibling.
+       */
+      if (i < x->n && x->c[i + 1]->n >= t) {
+        rotate(x, i, false);
+      } else if (i && x->c[i - 1]->n >= t) {
+        rotate(x, i, true);
+      } else {
+        /* x, and both of its siblings, all have t - 1
+         * keys. i grab r and its next sibling (or
+         * previous sibling if r is the last child
+         * of x) and merge them, removing a key from x.
+         */
+        node_type* merged;
+        if (i == x->n) {
+          merged = merge(x, i - 1);
+        } else {
+          merged = merge(x, i);
+        }
+        /* if x was the root, and x->n == 0,
+         * then merged is now the new root.
+         */
+        if (x->n == 0) {
+          assert(root.get() == x);
+          root.reset(x);
+        }
+      }
+    }
+    /* remove k from its subtree, knowing r->n >= t */
+    remove_recursive(r, k);
+  }
+}
+
+template <unsigned int t, typename key> void btree<t, key>::remove(const key& k) {
+  remove_recursive(root.get(), k);
 }
 
 template <unsigned int t, typename key>
