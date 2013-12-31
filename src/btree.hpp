@@ -1,6 +1,7 @@
 #include <memory>
 #include <utility>
 #include <ostream>
+#include <cassert>
 template <unsigned int t,
           typename key> struct btree_node {
   
@@ -96,6 +97,13 @@ private:
    */
   void rotate(node_type* p, unsigned int i, bool left);          
    
+  /**
+   * Merges the ith and (i+1)th children of p, assumed to both have t - 1 keys,
+   * into a single 2 * t - 1 key node, using the parent's ith key as the new
+   * node's median key.
+   */
+  void merge(node_type* p, int i);
+
   /**
    * Dump the subtree rooted at this node as in graphviz format to the
    * given output stream.
@@ -290,6 +298,37 @@ template <unsigned int t, typename key> void btree<t, key>::rotate(
     sibling->c[sibling->n - 1].reset(sibling->c[sibling->n].release());
     sibling->n--;
   }
+}
+
+template <unsigned int t, typename key> void btree<t, key>::merge(
+    typename btree<t, key>::node_type* parent,
+    int i) {
+  /* we'll marge the ith and i+1th children of parent */
+  std::unique_ptr<node_type> left = parent->c[i].get();
+  std::unique_ptr<node_type> right = parent->c[i + 1].get();
+
+  assert(left->n == t - 1);
+  assert(right->n == t - 1);
+
+  /* lower the parent's ith key, the median for the new merged node */
+  left->keys[t - 1] = parent->keys[i];
+
+  /* move over right's key to left, after the parent's key */
+  for (unsigned int j = 0; j < t - 1; ++j) {
+    left->keys[t + j] = right->keys[j];
+    left->c[t + j].reset(right->c[j].release());
+  }
+  left->keys[2 * t - 1].reset(right->c[t - 1].release());
+
+  /* 2 * (t - 1) + 1 = 2 * t - 1 */
+  left->n = 2 * t - 1;
+
+  /* move over the parent's keys and children */
+  for (unsigned int j = i; j < parent->n - 1; ++j) {
+    parent->keys[j] = parent->keys[j + 1];
+    parent->c[j + 1].reset(parent->c[j + 2].release()); 
+  }
+  parent->n--;
 }
 
 template <unsigned int t, typename key>
