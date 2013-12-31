@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <memory>
 #include <ostream>
 #include <utility>
@@ -47,6 +48,18 @@ template <unsigned int t,
   void insert(const key&);
 
   /**
+   * Finds the greatest key in the tree.
+   * Assumes the tree is not empty.
+   */
+  const key& greatest() const;
+
+  /**
+   * Finds the smallest key in the tree.
+   * Assumes the tree is not empty.
+   */
+  const key& smallest() const;
+
+  /**
    * Check B-tree invariants. The values of the tree must be >= lower,
    * and <= upper.
    */
@@ -64,12 +77,21 @@ private:
    */
   std::unique_ptr<node_type> root;
 
- /**
+  /**
    * Helper function for search. Searches within a given subtree, using
    * the provided node n as a root of the subtree.
    */
   std::pair<const node_type*, int> search_node(const node_type* n,
                                                const key& k) const;
+  /**
+   * Finds the greatest element in a given subtree.
+   */
+  std::pair<node_type*, int> greatest_in_subtree(node_type* r) const;
+
+  /**
+   * Finds the smallest element in a given subtree.
+   */
+  std::pair<node_type*, int> smallest_in_subtree(node_type* r) const;
 
   /**
    * Split the ith child of x, assuming that x is not full, and its ith
@@ -227,6 +249,36 @@ template <unsigned int t, typename key>
                             upper)) return false;
 
   return true;
+}
+
+template <unsigned int t, typename key>
+    std::pair<typename btree<t, key>::node_type*, int> btree<t, key>::greatest_in_subtree(
+      typename btree<t, key>::node_type* x) const {
+  if (x->leaf) return std::make_pair(x, x->n - 1);
+  return greatest_in_subtree(x->c[x->n].get());
+}
+
+template <unsigned int t, typename key>
+    std::pair<typename btree<t, key>::node_type*, int> btree<t, key>::smallest_in_subtree(
+      typename btree<t, key>::node_type* x) const {
+  if (x->leaf) return std::make_pair(x, 0);
+  return smallest_in_subtree(x->c[0].get());
+}
+
+template <unsigned int t, typename key> const key& btree<t, key>::greatest() const {
+  assert(root->n);
+  node_type* x;
+  int i;
+  std::tie(x, i) = greatest_in_subtree(root.get());
+  return x->keys[i];
+}
+
+template <unsigned int t, typename key> const key& btree<t, key>::smallest() const {
+  assert(root->n);
+  node_type* x;
+  int i;
+  std::tie(x, i) = smallest_in_subtree(root.get());
+  return x->keys[i];
 }
 
 template <unsigned int t, typename key>
