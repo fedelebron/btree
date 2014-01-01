@@ -5,7 +5,6 @@
 #include <utility>
 template <unsigned int t,
           typename key> struct btree_node {
-  
   /**
    * The number of keys this node has.
    */
@@ -52,7 +51,7 @@ template <unsigned int t,
    * If the key does not exist, does nothing.
    */
   void remove(const key&);
-  
+
   /**
    * Finds the greatest key in the tree.
    * Assumes the tree is not empty.
@@ -123,12 +122,13 @@ private:
    * s of p.c[i] (left sibling if left == true, else right), we "rotate" a
    * key from s up to p, and from p down to p.c[i].
    */
-  void rotate(node_type* p, unsigned int i, bool left);          
-   
+  void rotate(node_type* p, unsigned int i, bool left);
+
   /**
    * Merges the ith and (i+1)th children of p, assumed to both have t - 1 keys,
    * into a single 2 * t - 1 key node, using the parent's ith key as the new
    * node's median key.
+   * Returns the merged node (useful for merging a singleton root's children).
    */
   node_type* merge(node_type* p, int i);
 
@@ -136,6 +136,20 @@ private:
    * Assuming x is a leaf, removes the ith key from x.
    */
   void remove_from_leaf(node_type* x, int i);
+
+  /**
+   * Helper function for remove_recursive, removes the
+   * greatest key in the subtree rooted at r, and returns
+   * said key.
+   */
+  key remove_greatest(node_type* r);
+
+  /**
+   * Helper function for remove_recursive, removes the
+   * smallest key in the subtree rooted at r, and returns
+   * said key.
+   */
+  key remove_smallest(node_type* r);
 
   /**
    * Delete the key k from the subtree rooted at r.
@@ -146,7 +160,7 @@ private:
    * Dump the subtree rooted at this node as in graphviz format to the
    * given output stream.
    */
-  void dump_subtree_graphviz(const node_type*, std::ostream&) const;          
+  void dump_subtree_graphviz(const node_type*, std::ostream&) const;
 };
 
 
@@ -159,7 +173,7 @@ template<unsigned int t, typename key>
 template<unsigned int t, typename key>
     std::pair<const typename btree<t, key>::node_type*, int>
     btree<t, key>::search(const key& k) const {
-  return search_node(root.get(), k); 
+  return search_node(root.get(), k);
 }
 
 template<unsigned int t, typename key>
@@ -168,7 +182,7 @@ template<unsigned int t, typename key>
                                const key& k) const {
   unsigned int i;
 #ifdef BINARY_SEARCH
-  const key* r = std::lower_bound(x->keys, x->keys + x->n, k);  
+  const key* r = std::lower_bound(x->keys, x->keys + x->n, k);
   i = r - x->keys;
 #else
   i = 0;
@@ -285,7 +299,7 @@ template <unsigned int t, typename key> void btree<t, key>::rotate(
     typename btree<t, key>::node_type* parent,
     unsigned int i,
     bool left) {
-  node_type* child = parent->c[i].get();    
+  node_type* child = parent->c[i].get();
   /* am I removing a key from the left sibling? */
   if (left) {
     node_type* sibling = parent->c[i - 1].get();
@@ -327,7 +341,7 @@ template <unsigned int t, typename key> void btree<t, key>::rotate(
 template <unsigned int t, typename key> typename btree<t, key>::node_type* btree<t, key>::merge(
     typename btree<t, key>::node_type* parent,
     int i) {
-  /* we'll marge the ith and i+1th children of parent */
+  /* we'll merge the ith and i+1th children of parent */
   node_type* left = parent->c[i].get();
   node_type* right = parent->c[i + 1].get();
 
@@ -337,7 +351,7 @@ template <unsigned int t, typename key> typename btree<t, key>::node_type* btree
   /* lower the parent's ith key, the median for the new merged node */
   left->keys[t - 1] = parent->keys[i];
 
-  /* move over right's key to left, after the parent's key */
+  /* move over right's keys to left, after the parent's key */
   for (unsigned int j = 0; j < t - 1; ++j) {
     left->keys[t + j] = right->keys[j];
     left->c[t + j].reset(right->c[j].release());
@@ -347,10 +361,12 @@ template <unsigned int t, typename key> typename btree<t, key>::node_type* btree
   /* 2 * (t - 1) + 1 = 2 * t - 1 */
   left->n = 2 * t - 1;
 
+  /* clear out the empty slot in the parent */
+  parent->c[i + 1].reset();
   /* move over the parent's keys and children */
   for (unsigned int j = i; j < parent->n - 1; ++j) {
     parent->keys[j] = parent->keys[j + 1];
-    parent->c[j + 1].reset(parent->c[j + 2].release()); 
+    parent->c[j + 1].reset(parent->c[j + 2].release());
   }
   parent->n--;
 
@@ -397,6 +413,61 @@ template <unsigned int t, typename key> const key& btree<t, key>::smallest() con
   return x->keys[i];
 }
 
+template <unsigned int t, typename key> key btree<t, key>::remove_greatest(
+    typename btree<t, key>::node_type* x) {
+  /* invariant: x has at least t keys */
+  /* if x is a leaf of >= t keys, we just remove the last one */
+  if (x->leaf) {
+    x->n--;
+    return x->keys[x->n];
+  }
+  /* if the last child has >= t keys,
+   * we remove the greatest key rooted at it.
+   */
+  node_type* z = x->c[x->n].get();
+  if (z->n >= t) {
+    return remove_greatest(z);
+  }
+  /* z is minimal, so we can't step into it.
+   * if z's sibling has an extra key, rotate it
+   * onto z, and delete the greatest key rooted at z.
+   */
+  node_type* y = x->c[x->n - 1].get();
+  if (y->n >= t) {
+    rotate(x, x->n, true);
+    return remove_greatest(z);
+  }
+
+  /* z is minimal and so is its sibling y.
+   * merge them both, then remove the greatest
+   * key rooted at the merged node.
+   */
+  return remove_greatest(merge(x, x->n - 1));
+}
+
+template <unsigned int t, typename key> key btree<t, key>::remove_smallest(
+    typename btree<t, key>::node_type* x) {
+  /* see remove_greatest for comments */
+  if (x->leaf) {
+    key tmp = x->keys[0];
+    remove_from_leaf(x, 0);
+    return tmp;
+  }
+
+  node_type* z = x->c[0].get();
+  if (z->n >= t) {
+    return remove_smallest(z);
+  }
+
+  node_type* y = x->c[1].get();
+  if (y->n >= t) {
+    rotate(x, 0, false);
+    return remove_smallest(z);
+  }
+
+  return remove_smallest(merge(x, 0));
+}
+
 template <unsigned int t, typename key> void btree<t, key>::remove_recursive(
     typename btree<t, key>::node_type* x,
     const key& k) {
@@ -404,25 +475,31 @@ template <unsigned int t, typename key> void btree<t, key>::remove_recursive(
   assert(x->n >= t || x == root.get());
   int i = 0;
   while (i < x->n && x->keys[i] < k) ++i;
-  if (x->keys[i] == k) {
+  if (i < x->n && x->keys[i] == k) {
     if (x->leaf) {
       /* k was found in x, and x is a leaf, simply remove k */
       remove_from_leaf(x, i);
     } else {
       /* k was found in x, but x is not a leaf.
-       * replace x->keys[i] with its successor or predecessor y->keys[j].
-       * then remove y->keys[j].
-       * note y must always be a leaf.
+       * replace x->keys[i] with its successor or predecessor, and
+       * remove this other key.
        */
-      node_type* y;
-      int j;
-      if (x->c[i]->n >= t) { 
-        std::tie(y, j) = greatest_in_subtree(x->c[i].get());
+      if (x->c[i]->n >= t) {
+        x->keys[i] = remove_greatest(x->c[i].get());
+      } else if (x->c[i + 1]->n >= t) {
+        x->keys[i] = remove_smallest(x->c[i + 1].get());
       } else {
-        std::tie(y, j) = smallest_in_subtree(x->c[i + 1].get());  
+        node_type* merged = merge(x, i);
+        if (x->n == 0) {
+          /* if we just left the root keyless,
+           * the merged node is the new root
+           */
+          assert(x == root.get());
+          x->c[0].release();
+          root.reset(merged);
+        }
+        remove_recursive(merged, k);
       }
-      x->keys[i] = y->keys[j];
-      remove_from_leaf(y, j);
     }
   } else {
     /* k was not in x. if it exists, it's in subtree r. */
@@ -457,8 +534,20 @@ template <unsigned int t, typename key> void btree<t, key>::remove_recursive(
          */
         if (x->n == 0) {
           assert(root.get() == x);
-          root.reset(x);
+          assert(root->c[0].get() == merged);
+          /* we can't just kill the root,
+           * since it still owns what merged
+           * now points to. so we release root's
+           * ownership of the new merged node,
+           * and then kill the root.
+           */
+          root->c[0].release();
+          root.reset(merged);
         }
+        /* after merging, now we should look for
+         * k inside the new merged node
+         */
+        r = merged;
       }
     }
     /* remove k from its subtree, knowing r->n >= t */
